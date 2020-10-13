@@ -1,0 +1,86 @@
+# depslib dependency file v1.0
+1602602972 source:d:\codes\sqlite-wf\src\main.cpp
+	"uthash.h"
+	"global.h"
+	"utils.h"
+	"prefs.h"
+	"dialogs.h"
+	"session.h"
+	"resource.h"
+
+1602284988 d:\codes\sqlite-wf\src\utils.h
+	<tchar.h>
+	"sqlite3.h"
+
+1597437420 d:\codes\sqlite-wf\include\sqlite3.h
+	<stdarg.h>
+
+1600900450 d:\codes\sqlite-wf\src\prefs.h
+	<stdio.h>
+	<windows.h>
+	<tchar.h>
+	"sqlite3.h"
+
+1602442391 d:\codes\sqlite-wf\src\resource.h
+
+1602443196 source:d:\codes\sqlite-wf\src\prefs.cpp
+	<ctime>
+	"prefs.h"
+	"sqlite3.h"
+
+1602602729 source:d:\codes\sqlite-wf\src\resource.rc
+	<windows.h>
+	<commctrl.h>
+	<richedit.h>
+	"resource.h"
+
+1602286376 source:d:\codes\sqlite-wf\src\utils.cpp
+	<windows.h>
+	<stdio.h>
+	<stdlib.h>
+	<ctype.h>
+	<math.h>
+	"utils.h"
+
+1602602961 source:d:\codes\sqlite-wf\src\dialogs.cpp
+	<stdio.h>
+	"sqlite3.h"
+	"global.h"
+	"resource.h"
+	"utils.h"
+	"dialogs.h"
+	"session.h"
+
+1602603064 d:\codes\sqlite-wf\src\global.h
+	<windows.h>
+	<windowsx.h>
+	<commctrl.h>
+	<richedit.h>
+	<shlwapi.h>
+	<time.h>
+	<sys/stat.h>
+	<locale.h>
+	"sqlite3.h"
+
+1602603041 d:\codes\sqlite-wf\src\dialogs.h
+	<windows.h>
+
+1601325028 d:\codes\sqlite-wf\include\uthash.h
+	<string.h>
+	<stddef.h>
+	<stdlib.h>
+	<stdint.h>
+	<stdint.h>
+	<stdint.h>
+	<stdio.h>
+
+1602602502 source:d:\codes\sqlite-wf\src\session.cpp
+	<windows.h>
+	<stdio.h>
+	<ctype.h>
+	"global.h"
+	"utils.h"
+	"session.h"
+
+1602191602 d:\codes\sqlite-wf\src\session.h
+

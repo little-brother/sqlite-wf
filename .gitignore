@@ -1,0 +1,6 @@
+etc/
+bin/
+obj/
+extensions/*.dll
+extensions/*.bat
+ToDo.txt
