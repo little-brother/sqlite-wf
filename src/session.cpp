@@ -10,6 +10,15 @@
 #define NO_MORE_TASK  2
 
 namespace session {
+	static void _assert(sqlite3_context *ctx, int argc, sqlite3_value **argv){
+		char msg[255 + 1] = "Error";
+		if (argc > 1)
+			snprintf(msg, 255, "%s", sqlite3_value_text(argv[1]));
+
+		if (argc > 0 && sqlite3_value_int(argv[0]) == 0)
+			sqlite3_result_error(ctx, msg, -1);
+	}
+
 	int setArg(int sid, const char* var, const char* value) {
 		sqlite3_stmt* stmt;
 		sqlite3_prepare_v2(db, "replace into workflow_vars (sid, var, value) select ?1, ?2, ?3", -1, &stmt, NULL);
@@ -44,7 +53,7 @@ namespace session {
 	}
 
 	char* applyArgs(int sid, const char* str) {
-		if (!strlen(str))
+		if (!str || !strlen(str))
 			return (char*)calloc (1, sizeof (char));
 
 		char* res = (char*)calloc (strlen(str) + 1, sizeof (char*));
@@ -97,16 +106,17 @@ namespace session {
 		}
 		free(raw);
 
-		if (rc == SQLITE_OK)
+		if (rc == SQLITE_OK) {
 			rc = sqlite3_step(stmt);
-		else
+		} else
 			setError(sid, nid, sqlite3_errmsg(sdb));
 
 		if (rc == SQLITE_ROW) {
 			char buf[64] = {0};
 			sprintf(buf, "$$NODE%i.DATA", nid);
-			setArg(sid, buf, (const char*)sqlite3_column_text(stmt, 0));
+			setArg(sid, buf, sqlite3_column_type(stmt, 0) == SQLITE_NULL ? "NULL" : (const char*)sqlite3_column_text(stmt, 0));
 		}
+
 		sqlite3_finalize(stmt);
 
 		return rc == SQLITE_ROW || rc == SQLITE_DONE ? TASK_DONE : TASK_FAIL;
@@ -405,6 +415,7 @@ namespace session {
 			} while ((FindNextFile(hFind, &ffd)));
 			FindClose(hFind);
 		}
+		sqlite3_create_function(sdb, "assert", -1, SQLITE_UTF8, 0, _assert, 0, 0);
 
 		// Register session
 		rc = SQLITE_OK == sqlite3_prepare_v2(db,

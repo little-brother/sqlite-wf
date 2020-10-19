@@ -46,6 +46,42 @@ SQLITE_EXTENSION_INIT1
 #define MAX_COLUMN_LENGTH 2000
 #define MAX_ERROR_LENGTH 2000
 
+char* getName(const char* in, BOOL isSchema) {
+	char* res = (char*)calloc(strlen(in) + 5, sizeof(char));
+	if (!strlen(in)) 
+		return strcat(res, isSchema ? "main" : "");
+
+	const char* p = in;
+	while (p[0] && !_istgraph(p[0]))
+		p++;
+
+	char* q = p ? strchr("'`\"[", p[0]) : 0;
+	if (q) {
+		char* q2 = strchr(p + 1, q[0] == '[' ? ']' : q[0]);
+		if (q2 && ((isSchema && q2[1] == '.') || (!isSchema && q2[1] != '.')))
+			strncpy(res, p + 1, strlen(p) - strlen(q2) - 1);
+
+		if (q2 && !isSchema && q2[1] == '.' && q2[2] != 0) {
+			free(res);
+			return getName(q2 + 2, FALSE);
+		}
+
+	} else {
+		char* d = p ? strchr(p, '.') : 0;
+		if (d && isSchema)
+			strncpy(res, p, strlen(p) - strlen(d));
+		if (d && !isSchema) {
+			free(res);
+			return getName(d + 1, FALSE);
+		}
+	}
+
+	if (!res[0])
+		strcat(res, isSchema ? "main" : in);
+
+	return res;
+}
+
 char* utf16to8(const TCHAR* in) {
 	char* out;
 	if (!in || _tcslen(in) == 0) {
@@ -134,25 +170,19 @@ static void odbc_read(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 		len  = sqlite3_value_bytes(argv[2]);
 		unsigned char target8[len + 1];
 		strcpy((char*)target8, (char*)sqlite3_value_text(argv[2]));
-		TCHAR* target16 = utf8to16(target8);
-
+		char* tablename8 = getName(target8, FALSE);
+		TCHAR* tablename16 = utf8to16(tablename8);
+		free(tablename8);
+	 
 		SQLSMALLINT colCount = 0;
 		SQLNumResultCols(hStmt, &colCount);
 
 		int colTypes[colCount];
 		TCHAR createQuery16[colCount * MAX_COLUMN_LENGTH + 512];
 		TCHAR insertQuery16[colCount * MAX_COLUMN_LENGTH + 512];
-		TCHAR tblname16[_tcslen(target16) + 32];
-		TCHAR* dot = _tcschr(target16, TEXT('.'));
-		TCHAR* tname16 = dot ? dot + 1 : target16;
-		BOOL needQuotes = isalpha(tname16[0]);
-		_stprintf(tblname16, TEXT("temp.%s%s%i%s"), needQuotes ? TEXT("\"") : TEXT(""), tname16, sid, needQuotes ? TEXT("\"") : TEXT(""));
-
-		free(target16);
-
-		_stprintf(createQuery16, TEXT("create table if not exists %s (\""), tblname16);
-		_stprintf(insertQuery16, TEXT("insert into %s (\""), tblname16);
-
+	
+		_stprintf(createQuery16, TEXT("create table if not exists temp.\"%s%i\" (\""), tablename16, sid);
+		_stprintf(insertQuery16, TEXT("insert into temp.\"%s%i\" (\""), tablename16, sid);
 
 		for (int colNo = 1; colNo <= colCount; colNo++) {
 			TCHAR colName[MAX_COLUMN_LENGTH + 1];
@@ -237,14 +267,17 @@ static void odbc_read(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 			}
 
 			if (rc) {
-				int len = strlen(target8) + _tcslen(tblname16) + 128;
+				int len = 2 * strlen(target8) + 128;
 				char create8[len];
 				char insert8[len];
-				BOOL needQuotes = !strchr(target8, '.');
-				char* tblname8 = utf16to8(tblname16);
-				sprintf(create8, "create table %s%s%s as select * from %s", needQuotes ? "\"" : "", target8, needQuotes ? "\"" : "", tblname8);
-				sprintf(insert8, "insert into %s%s%s select * from %s", needQuotes ? "\"" : "", target8, needQuotes ? "\"" : "", tblname8);
-				free(tblname8);
+				char* schema8 = getName(target8, TRUE);
+				char* tablename8 = getName(target8, FALSE);
+
+				sprintf(create8, "create table \"%s\".\"%s\" as select * from temp.\"%s%i\"", schema8, tablename8, tablename8, sid);
+				sprintf(insert8, "insert into \"%s\".\"%s\" select * from temp.\"%s%i\"", schema8, tablename8, tablename8, sid);
+
+				free(schema8);
+				free(tablename8);
 
 				if (SQLITE_OK == sqlite3_exec(db, create8, 0, 0, 0) || SQLITE_OK == sqlite3_exec(db, insert8, 0, 0, 0)) {
 					char result[512];
@@ -299,7 +332,6 @@ static void odbc_write(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 			onError(ctx, "DSN is invalid");
 
 		SQLSetConnectAttr(hConn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, SQL_NTS);
-
 
 		rc = SQLAllocHandle(SQL_HANDLE_STMT, hConn, &hStmt);
 		res = res && (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO);

@@ -5,15 +5,15 @@
 #include "resource.h"
 
 1 VERSIONINFO
-FILEVERSION 0, 8, 0, 0
+FILEVERSION 0, 8, 1, 0
 FILEOS VOS_DOS_WINDOWS32
 FILETYPE VFT_APP {
 	BLOCK "StringFileInfo" {
 		BLOCK "040904E4" {
 			VALUE "FileDescription", "SQLite Workflow Manager\000"
-			VALUE "FileVersion", "0.8.0\000"
+			VALUE "FileVersion", "0.8.1\000"
 			VALUE "ProductName", "sqlite-wf\000"
-			VALUE "ProductVersion", "0.8.0\000"
+			VALUE "ProductVersion", "0.8.1\000"
 			VALUE "LegalCopyright", "Copyright \251 Little Brother 2020\000"
 			VALUE "OriginalFilename", "sqlite-wf.exe\000"
 		}
@@ -75,7 +75,8 @@ BEGIN
 	LTEXT "Name", IDC_DLG_LABEL, 5, 7, 25, 14, SS_LEFT
 	EDITTEXT IDC_DLG_NODE_NAME, 30, 5, 160, 12, WS_BORDER | WS_TABSTOP
 
-	EDITTEXT IDC_DLG_NODE_ID, 195, 5, 30, 12, WS_TABSTOP | ES_READONLY | WS_BORDER | ES_CENTER
+	LTEXT "ID", IDC_DLG_LABEL, 195, 7, 10, 14, SS_LEFT
+	EDITTEXT IDC_DLG_NODE_ID, 205, 5, 20, 12, WS_TABSTOP | ES_READONLY | ES_CENTER
 
 	LTEXT "", IDC_DLG_NODE_LABEL, 5, 25, 100, 10, SS_LEFT
 	CONTROL "", IDC_DLG_NODE_SQL, "RICHEDIT50W",

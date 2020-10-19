@@ -1,9 +1,10 @@
 /*
-	exec(cmd, maxOutputLength = 32000)
+	exec(cmd, codepage = UTF32)
 	Executes shell command and returns console output as result.
-	If maxOutputLength less 1 then returns NULL
+	Codepage defines code page of command output and is a one of: ANSI, CP437, UTF7, UTF8, UTF16. 
+	If cmd starts from "powershell" and codepage is empty then CP437 is used.
 	Can be used to import an external data or to execute smth in a trigger
-	select exec('powershell -nologo "Get-Content C:/data.txt"') -- as one value
+	select exec('powershell Get-Content C:/data.txt', 'CP437') -- as one value
 	select * from exec('powershell -nologo "Get-Content C:/data.txt"') -- as a table
 */
 
@@ -39,15 +40,15 @@ TCHAR* MBto16(const char* in, UINT codepage) {
 	return out;
 }
 
-TCHAR* utf8to16(const char* in) {
-	return MBto16(in, CP_UTF8);
-}
+unsigned char* execCmd(const unsigned char* cmd, const unsigned char* cp) {
+	int codepage = cp == 0 && strstr(cmd, "powershell") != 0 ? CP_OEMCP :
+		cp == 0 ? CP_WINUNICODE :
+		strcmp(cp, "UTF7") == 0 ? CP_UTF7 :
+		strcmp(cp, "UTF8") == 0 ? CP_UTF8 :
+		strcmp(cp, "ANSI") == 0 ? CP_ACP :
+		strcmp(cp, "CP437") == 0 ? CP_OEMCP :
+		CP_WINUNICODE;
 
-TCHAR* OEMto16(const char* in) {
-	return MBto16(in, CP_OEMCP);
-}
-
-static BOOL execCmd(const char* cmd, char* output, int maxLength) {
 	SECURITY_ATTRIBUTES sa = {0};
 	sa.nLength = sizeof(sa);
 	sa.lpSecurityDescriptor = NULL;
@@ -56,8 +57,11 @@ static BOOL execCmd(const char* cmd, char* output, int maxLength) {
 	HANDLE hStdOutRd, hStdOutWr;
 	HANDLE hStdErrRd, hStdErrWr;
 	
-	if (!CreatePipe(&hStdOutRd, &hStdOutWr, &sa, 0) || !CreatePipe(&hStdErrRd, &hStdErrWr, &sa, 0)) 
-		return FALSE;
+	if (!CreatePipe(&hStdOutRd, &hStdOutWr, &sa, 0) || !CreatePipe(&hStdErrRd, &hStdErrWr, &sa, 0)) {
+		unsigned char* output = malloc(255 * sizeof(char));
+		sprintf(output, "An error has occurred while creating a process");
+		return output;
+	}
 
 	SetHandleInformation(hStdOutRd, HANDLE_FLAG_INHERIT, 0);
 	SetHandleInformation(hStdErrRd, HANDLE_FLAG_INHERIT, 0);
@@ -71,50 +75,62 @@ static BOOL execCmd(const char* cmd, char* output, int maxLength) {
 	
 	PROCESS_INFORMATION pi = {0};
 	
-	TCHAR* cmd16 = utf8to16(cmd);
+	TCHAR* cmd16 = MBto16(cmd, CP_UTF8);
 	BOOL rc = CreateProcess(NULL, cmd16, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi); 
 	free(cmd16);
 
 	CloseHandle(hStdOutWr);
 	CloseHandle(hStdErrWr);
 
-	BYTE buf[maxLength + 1];
-	BYTE data[maxLength + 1];
-	memset (data, 0, maxLength + 1);
+	int oLen = 32000, bLen = 4096, dLen = 32000;
+	unsigned char* output = (unsigned char*)calloc(oLen + 1, sizeof (char));
 
-	for (int i = 0; maxLength > 0 && rc && (i < 2); i++) {
-		BOOL bSuccess = FALSE;
+	for (int i = 0; rc && (i < 2); i++) {
+		BYTE buf[bLen + 1];
+		BYTE* data = (unsigned char*)calloc(dLen + 1, sizeof (BYTE));;
+
+		BOOL bSuccess = TRUE;
 		DWORD dwRead;
 		HANDLE hRd = i == 0 ? hStdOutRd : hStdErrRd;
-
-		for (;strlen(data) < maxLength;) { 
-			memset (buf, 0, maxLength + 1);
-			bSuccess = ReadFile(hRd, buf, maxLength, &dwRead, NULL);
+		while (bSuccess) { 
+			memset (buf, 0, bLen + 1);
+			bSuccess = ReadFile(hRd, buf, bLen, &dwRead, NULL);
 			if(!bSuccess) 
 				break; 
 			
-			int rLen = strlen(data);
-			int bLen = strlen(buf);
-			strncat(data, buf, rLen + bLen < maxLength ? bLen : maxLength - rLen);
+			if (bLen + strlen(data) >= dLen) {
+				dLen = dLen + strlen(data) + 1;	
+				data = realloc(data, dLen);			
+			}
+			strcat(data, buf);
 		}
 
-		// CP437 -> UTF16 -> UTF8
-		TCHAR* data16 = OEMto16(data);
+		// codepage -> UTF16 -> UTF8
+		TCHAR* data16 = (codepage != CP_WINUNICODE) ? MBto16(data, codepage) : (TCHAR*)data;
 		char* data8 = utf16to8(data16);
-		memset(output, 0, maxLength + 1);
-		strncpy(output, data8, strlen(data8));
-		free(data16);
+		strlen(data8);
+
+		if (oLen - strlen(output) <= strlen(data8)) {
+			oLen = oLen + strlen(data8) + 1;	
+			output = realloc(output, oLen);			
+		}
+		strcat(output, data8);
 		free(data8);
+		if (codepage != CP_WINUNICODE)
+			free(data16);
+		free(data);
 	}
-
-
+	
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
 
 	CloseHandle(hStdOutRd);	
 	CloseHandle(hStdErrRd);
 
-	return rc;
+	if (!rc)
+		sprintf(output, "An error has occurred while creating a process");
+
+	return output;
 }
 
 typedef struct exec_vtab exec_vtab;
@@ -128,9 +144,9 @@ struct exec_cursor {
 	
 	sqlite3_int64 iRowid;
 	char* cmd;
-	int len;
 	BOOL isEof; 
 	char* data;
+	char* codepage;
 	char* pos;
 };
 
@@ -174,6 +190,8 @@ static int execOpen(sqlite3_vtab *pVtab, sqlite3_vtab_cursor **ppCursor){
 
 static int execClose(sqlite3_vtab_cursor *cur){
 	exec_cursor *pCur = (exec_cursor*)cur;
+	if (pCur->codepage)
+		free(pCur->codepage);
 	free(pCur->data);
 	free(pCur->cmd);
 	sqlite3_free(pCur);
@@ -208,7 +226,7 @@ static int execColumn(sqlite3_vtab_cursor* cur, sqlite3_context* ctx, int colNo)
 	} else if (colNo == 1) {
 		sqlite3_result_text(ctx, (char*)pCur->cmd, -1, SQLITE_TRANSIENT);
 	} else {
-		sqlite3_result_int(ctx, pCur->len);
+		sqlite3_result_text(ctx, pCur->codepage, -1, SQLITE_TRANSIENT);
 	}
 	return SQLITE_OK;
 
@@ -233,18 +251,18 @@ static int execFilter(sqlite3_vtab_cursor *cur, int idxNum, const char *idxStr, 
 	pCur->cmd = malloc(sizeof(char) * (strlen(cmd) + 1));
 	sprintf(pCur->cmd, cmd);
 
-	int len = argc == 2 ? sqlite3_value_int(argv[1]) : 0;
-	len = len <= 0 ? 32000 : len;
-	pCur->len = len;
-
 	if (!pCur->data) {
-		pCur->data = (char*)calloc(sizeof(char), len + 1);
-		if (!execCmd(pCur->cmd, pCur->data, pCur->len)) {
-			execClose(cur);
-			return SQLITE_ERROR;
+		const unsigned char* codepage = argc == 2 ? sqlite3_value_text(argv[1]) : 0;
+		if (codepage) {
+			pCur->codepage = (unsigned char*)calloc(strlen(codepage) + 1, sizeof(char));
+			memcpy(pCur->codepage, codepage, strlen(codepage));
+		} else {
+			pCur->codepage = 0;
 		}
-	}
 
+		pCur->data = execCmd(pCur->cmd, pCur->codepage);
+	}
+	
 	pCur->iRowid = 1;
 	pCur->pos = pCur->data;
 	pCur->isEof = FALSE;
@@ -331,16 +349,9 @@ static void exec(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 		return;		
 	}
 
-	int len = argc > 1 ? sqlite3_value_int(argv[1]) : 32000;
-	len = len < 0 ? 32000 : len;
-	char output[len + 1];
-	memset(output, 0, len + 1);
-			
-	if (execCmd((const char*)sqlite3_value_text(argv[0]), output, len)) {
-		sqlite3_result_text(ctx, (char*)output, -1, SQLITE_TRANSIENT);
-	} else {
-		sqlite3_result_text(ctx, (char*)"An error has occurred while creating a process", -1, SQLITE_TRANSIENT);
-	}
+	unsigned char* output = execCmd(sqlite3_value_text(argv[0]), argc > 1 ? sqlite3_value_text(argv[1]) : 0);
+	sqlite3_result_text(ctx, output, -1, SQLITE_TRANSIENT);
+	free(output);
 }
 
 __declspec(dllexport) int sqlite3_exec_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi) {

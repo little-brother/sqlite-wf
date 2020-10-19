@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1602602972 source:d:\codes\sqlite-wf\src\main.cpp
+1602884290 source:d:\codes\sqlite-wf\src\main.cpp
 	"uthash.h"
 	"global.h"
 	"utils.h"
@@ -8,33 +8,33 @@
 	"session.h"
 	"resource.h"
 
-1602284988 d:\codes\sqlite-wf\src\utils.h
+1602801899 d:\codes\sqlite-wf\src\utils.h
 	<tchar.h>
 	"sqlite3.h"
 
-1597437420 d:\codes\sqlite-wf\include\sqlite3.h
+1602801899 d:\codes\sqlite-wf\include\sqlite3.h
 	<stdarg.h>
 
-1600900450 d:\codes\sqlite-wf\src\prefs.h
+1602801899 d:\codes\sqlite-wf\src\prefs.h
 	<stdio.h>
 	<windows.h>
 	<tchar.h>
 	"sqlite3.h"
 
-1602442391 d:\codes\sqlite-wf\src\resource.h
+1602801899 d:\codes\sqlite-wf\src\resource.h
 
-1602443196 source:d:\codes\sqlite-wf\src\prefs.cpp
+1602801899 source:d:\codes\sqlite-wf\src\prefs.cpp
 	<ctime>
 	"prefs.h"
 	"sqlite3.h"
 
-1602602729 source:d:\codes\sqlite-wf\src\resource.rc
+1602879963 source:d:\codes\sqlite-wf\src\resource.rc
 	<windows.h>
 	<commctrl.h>
 	<richedit.h>
 	"resource.h"
 
-1602286376 source:d:\codes\sqlite-wf\src\utils.cpp
+1602801899 source:d:\codes\sqlite-wf\src\utils.cpp
 	<windows.h>
 	<stdio.h>
 	<stdlib.h>
@@ -42,7 +42,7 @@
 	<math.h>
 	"utils.h"
 
-1602602961 source:d:\codes\sqlite-wf\src\dialogs.cpp
+1602801899 source:d:\codes\sqlite-wf\src\dialogs.cpp
 	<stdio.h>
 	"sqlite3.h"
 	"global.h"
@@ -51,7 +51,7 @@
 	"dialogs.h"
 	"session.h"
 
-1602603064 d:\codes\sqlite-wf\src\global.h
+1602801899 d:\codes\sqlite-wf\src\global.h
 	<windows.h>
 	<windowsx.h>
 	<commctrl.h>
@@ -62,10 +62,10 @@
 	<locale.h>
 	"sqlite3.h"
 
-1602603041 d:\codes\sqlite-wf\src\dialogs.h
+1602801899 d:\codes\sqlite-wf\src\dialogs.h
 	<windows.h>
 
-1601325028 d:\codes\sqlite-wf\include\uthash.h
+1602801899 d:\codes\sqlite-wf\include\uthash.h
 	<string.h>
 	<stddef.h>
 	<stdlib.h>
@@ -74,7 +74,7 @@
 	<stdint.h>
 	<stdio.h>
 
-1602602502 source:d:\codes\sqlite-wf\src\session.cpp
+1603032741 source:d:\codes\sqlite-wf\src\session.cpp
 	<windows.h>
 	<stdio.h>
 	<ctype.h>
@@ -82,5 +82,5 @@
 	"utils.h"
 	"session.h"
 
-1602191602 d:\codes\sqlite-wf\src\session.h
+1602801899 d:\codes\sqlite-wf\src\session.h
 
