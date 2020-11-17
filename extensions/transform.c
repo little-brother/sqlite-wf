@@ -80,7 +80,7 @@ static void onError(sqlite3* db, sqlite3_context *ctx, const char* info) {
 static void pivot(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	const char* query = sqlite3_value_text(argv[0]);
 	const char* target = sqlite3_value_text(argv[1]);
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 
 	srand(time(NULL));
 	int sid = rand();
@@ -155,7 +155,7 @@ static void pivot(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 static void unpivot(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	const char* query = sqlite3_value_text(argv[0]);
 	const char* target = sqlite3_value_text(argv[1]);
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 
 	srand(time(NULL));
 	int sid = rand();
@@ -180,7 +180,6 @@ static void unpivot(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 
 	if (rc) {
 		const unsigned char* a = sqlite3_column_name(stmt, 0);
-
 
 		int size = 255;
 		for (int colNo = 1; colNo < colNo; colNo++)
@@ -221,7 +220,7 @@ static void unpivot(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 static void jsontable(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	const char* json = sqlite3_value_text(argv[0]);
 	const char* target = sqlite3_value_text(argv[1]);
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 
 	unsigned char query[2000];
 	char* schema = getName(target, TRUE);
@@ -307,7 +306,7 @@ static void jsontable(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 static void txttable(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	const char* text = sqlite3_value_text(argv[0]);
 	const char* target = sqlite3_value_text(argv[1]);
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 
 	srand(time(NULL));
 	int sid = rand();
@@ -356,9 +355,9 @@ __declspec(dllexport) int sqlite3_transform_init(sqlite3 *db, char **pzErrMsg, c
 	int rc = SQLITE_OK;
 	SQLITE_EXTENSION_INIT2(pApi);
 	(void)pzErrMsg;  /* Unused parameter */
-	return SQLITE_OK == sqlite3_create_function(db, "pivot", 2, SQLITE_UTF8, (void*)db, pivot, 0, 0) &&
-		SQLITE_OK == sqlite3_create_function(db, "unpivot", 2, SQLITE_UTF8, (void*)db, unpivot, 0, 0) &&
-		SQLITE_OK == sqlite3_create_function(db, "jsontable", 2, SQLITE_UTF8, (void*)db, jsontable, 0, 0) &&
-		SQLITE_OK == sqlite3_create_function(db, "txttable", 2, SQLITE_UTF8, (void*)db, txttable, 0, 0) ?
+	return SQLITE_OK == sqlite3_create_function(db, "pivot", 2, SQLITE_UTF8, NULL, pivot, 0, 0) &&
+		SQLITE_OK == sqlite3_create_function(db, "unpivot", 2, SQLITE_UTF8, NULL, unpivot, 0, 0) &&
+		SQLITE_OK == sqlite3_create_function(db, "jsontable", 2, SQLITE_UTF8, NULL, jsontable, 0, 0) &&
+		SQLITE_OK == sqlite3_create_function(db, "txttable", 2, SQLITE_UTF8, NULL, txttable, 0, 0) ?
 		SQLITE_OK : SQLITE_ERROR;
 }

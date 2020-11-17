@@ -1,13 +1,16 @@
 /*
-	odbc_read(DSN, query, target)
+	odbc_read(connectionString, query, target)
 	Read data via ODBC from external source and write it to SQLite table. If the target table doesn't exist, it'll be created.
 	Use TABLES as the query to obtain a table list.
 
-	odbc_write(query, DSN, target)
+	odbc_write(query, connectionString, target)
 	Upload query resultset from SQLite to external database. The target table must exists.
 
-	odbc_query(DSN, query)
+	odbc_query(connectionString, query)
 	Execute query on external database e.g. to create target table.
+
+	odbc_dsn()
+	Returns local DSN list as json array: {"result": ["MyData", "Csv", ...], ...}
 
 	Returns json
 		OK - {"result": "ok", ...}
@@ -16,7 +19,7 @@
 	Cons
 	* Some driver are read-only mode.
 	* Supports only basic types - numbers and text. 
-	* BLOB, dattime and etc are unsupported.
+	* BLOB, datetime and etc are unsupported.
 
 	Remarks
 	* Use 32bit ODBC manager: C:\Windows\SysWOW64\odbcad32.exe
@@ -118,7 +121,7 @@ static void odbc_read(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	SQLHANDLE hConn;
 	SQLHANDLE hStmt = 0;
 
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 
 	srand(time(NULL));
 	int sid = rand();
@@ -134,12 +137,12 @@ static void odbc_read(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 
 	if (res) {
 		int len  = sqlite3_value_bytes(argv[0]);
-		unsigned char dsn8[len + 1];
-		strcpy((char*)dsn8, (char*)sqlite3_value_text(argv[0]));
-		TCHAR* dsn16 = utf8to16(dsn8);	
-		rc = SQLDriverConnect(hConn, NULL, dsn16, _tcslen(dsn16), 0, 0, NULL, SQL_DRIVER_NOPROMPT);
+		unsigned char connectionString8[len + 1];
+		strcpy((char*)connectionString8, (char*)sqlite3_value_text(argv[0]));
+		TCHAR* connectionString16 = utf8to16(connectionString8);	
+		rc = SQLDriverConnect(hConn, NULL, connectionString16, _tcslen(connectionString16), 0, 0, NULL, SQL_DRIVER_NOPROMPT);
 		res = rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO;
-		free(dsn16);
+		free(connectionString16);
 		if (!res)
 			onError(ctx, "DSN is invalid");
 
@@ -299,7 +302,7 @@ static void odbc_read(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 }
 
 static void odbc_write(sqlite3_context *ctx, int argc, sqlite3_value **argv){
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 	sqlite3_stmt* stmt;
 	if (SQLITE_OK != sqlite3_prepare_v2(db, sqlite3_value_text(argv[0]), -1, &stmt, 0)) {
 		onError(ctx, sqlite3_errmsg(db));
@@ -322,12 +325,12 @@ static void odbc_write(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 
 	if (res) {
 		int len  = sqlite3_value_bytes(argv[1]);
-		unsigned char dsn8[len + 1];
-		strcpy((char*)dsn8, (char*)sqlite3_value_text(argv[1]));
-		TCHAR* dsn16 = utf8to16(dsn8);	
-		rc = SQLDriverConnect(hConn, NULL, dsn16, _tcslen(dsn16), 0, 0, NULL, SQL_DRIVER_NOPROMPT);
+		unsigned char connectionString8[len + 1];
+		strcpy((char*)connectionString8, (char*)sqlite3_value_text(argv[1]));
+		TCHAR* connectionString16 = utf8to16(connectionString8);	
+		rc = SQLDriverConnect(hConn, NULL, connectionString16, _tcslen(connectionString16), 0, 0, NULL, SQL_DRIVER_NOPROMPT);
 		res = rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO;
-		free(dsn16);
+		free(connectionString16);
 		if (!res)
 			onError(ctx, "DSN is invalid");
 
@@ -446,7 +449,7 @@ static void odbc_query(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	SQLHANDLE hConn;
 	SQLHANDLE hStmt = 0;
 
-	sqlite3* db = (sqlite3*)sqlite3_user_data(ctx);
+	sqlite3* db = sqlite3_context_db_handle(ctx);
 
 	srand(time(NULL));
 	int sid = rand();
@@ -462,12 +465,12 @@ static void odbc_query(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 
 	if (res) {
 		int len  = sqlite3_value_bytes(argv[0]);
-		unsigned char dsn8[len + 1];
-		strcpy((char*)dsn8, (char*)sqlite3_value_text(argv[0]));
-		TCHAR* dsn16 = utf8to16(dsn8);	
-		rc = SQLDriverConnect(hConn, NULL, dsn16, _tcslen(dsn16), 0, 0, NULL, SQL_DRIVER_NOPROMPT);
+		unsigned char connectionString8[len + 1];
+		strcpy((char*)connectionString8, (char*)sqlite3_value_text(argv[0]));
+		TCHAR* connectionString16 = utf8to16(connectionString8);	
+		rc = SQLDriverConnect(hConn, NULL, connectionString16, _tcslen(connectionString16), 0, 0, NULL, SQL_DRIVER_NOPROMPT);
 		res = rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO;
-		free(dsn16);
+		free(connectionString16);
 		if (res) {
 			rc = SQLAllocHandle(SQL_HANDLE_STMT, hConn, &hStmt);
 			res = res && (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO);
@@ -501,13 +504,68 @@ static void odbc_query(sqlite3_context *ctx, int argc, sqlite3_value **argv){
 	SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
 }
 
+static void odbc_dsn(sqlite3_context *ctx, int argc, sqlite3_value **argv){
+	SQLHANDLE hEnv;
+	int rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	rc = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
+
+	if (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) {
+		int cnt = 0;
+		rc = SQLDataSources(hEnv, SQL_FETCH_FIRST, NULL, 0, 0, NULL, 0, 0);	
+		while (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) {
+			cnt++;
+			rc = SQLDataSources(hEnv, SQL_FETCH_NEXT, NULL, 0, 0, NULL, 0, 0);
+		}
+
+		if (cnt > 0) {
+			TCHAR dsn16[SQL_MAX_DSN_LENGTH + 1];
+			short len = 0;
+
+			char query8[MAX_DATA_LENGTH];
+			sprintf(query8, "select json_object('result', json_array(");
+			for (int i = 0; i < cnt; i++)
+				strcat(query8, i > 0 ? ", ?" : "?");
+			strcat(query8, "))");
+
+			sqlite3* db = sqlite3_context_db_handle(ctx);
+			sqlite3_stmt* stmt;
+
+			if (SQLITE_OK == sqlite3_prepare_v2(db, query8, -1, &stmt, 0)) {
+				int no = 1;	
+				rc = SQLDataSources(hEnv, SQL_FETCH_FIRST, dsn16, SQL_MAX_DSN_LENGTH + 1, &len, NULL, 0, 0);	
+				while (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) {
+					char* dsn8 = utf16to8(dsn16);
+					sqlite3_bind_text(stmt, no, dsn8, strlen(dsn8), SQLITE_TRANSIENT);
+					free(dsn8);
+					no++;
+	
+					rc = SQLDataSources(hEnv, SQL_FETCH_NEXT, dsn16, SQL_MAX_DSN_LENGTH, &len, NULL, 0, 0);
+				}
+
+				if (SQLITE_ROW == sqlite3_step(stmt)) {
+					sqlite3_result_text(ctx, sqlite3_column_text(stmt, 0), -1, SQLITE_TRANSIENT);
+				} else {
+					onError(ctx, sqlite3_errmsg(db));
+				}
+			}
+
+			sqlite3_finalize(stmt);
+		} else {
+			sqlite3_result_text(ctx, "{\"result\": []}", -1, SQLITE_TRANSIENT);
+		} 
+	} else {
+		onError(ctx, "Couldn't get access to ODBC manager");
+	}
+
+	SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
+
 __declspec(dllexport) int sqlite3_odbc_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi) {
 	SQLITE_EXTENSION_INIT2(pApi);
 	(void)pzErrMsg;  /* Unused parameter */
 
-	BOOL rc1 = SQLITE_OK == sqlite3_create_function(db, "odbc_read", 3, SQLITE_UTF8, (void*)db, odbc_read, 0, 0);
-	BOOL rc2 = SQLITE_OK == sqlite3_create_function(db, "odbc_write", 3, SQLITE_UTF8, (void*)db, odbc_write, 0, 0);
-	BOOL rc3 = SQLITE_OK == sqlite3_create_function(db, "odbc_query", 2, SQLITE_UTF8, (void*)db, odbc_query, 0, 0);
-
-	return rc1 && rc2 && rc3 ? SQLITE_OK : SQLITE_ERROR;
+	return (SQLITE_OK == sqlite3_create_function(db, "odbc_read", 3, SQLITE_UTF8, 0, odbc_read, 0, 0)) &&
+		(SQLITE_OK == sqlite3_create_function(db, "odbc_write", 3, SQLITE_UTF8, 0, odbc_write, 0, 0)) &&
+		(SQLITE_OK == sqlite3_create_function(db, "odbc_query", 2, SQLITE_UTF8, 0, odbc_query, 0, 0)) &&
+		(SQLITE_OK == sqlite3_create_function(db, "odbc_dsn", 0, SQLITE_UTF8, 0, odbc_dsn, 0, 0)) ? SQLITE_OK : SQLITE_ERROR;
 }
